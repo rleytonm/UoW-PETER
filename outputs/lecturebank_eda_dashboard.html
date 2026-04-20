@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LectureBank EDA Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  :root {
+    --bg-primary: #ffffff;
+    --bg-secondary: #f5f5f2;
+    --bg-tertiary: #efefeb;
+    --bg-info: #e6f1fb;
+    --text-primary: #1a1a18;
+    --text-secondary: #5f5e5a;
+    --text-tertiary: #88877f;
+    --text-info: #185fa5;
+    --border-subtle: rgba(0,0,0,0.12);
+    --border-medium: rgba(0,0,0,0.22);
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg-primary: #1e1e1c;
+      --bg-secondary: #2a2a27;
+      --bg-tertiary: #242422;
+      --bg-info: #0c2d4a;
+      --text-primary: #f0ede8;
+      --text-secondary: #a8a69f;
+      --text-tertiary: #6e6c66;
+      --text-info: #85b7eb;
+      --border-subtle: rgba(255,255,255,0.1);
+      --border-medium: rgba(255,255,255,0.18);
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: var(--font);
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    padding: 2rem;
+    line-height: 1.6;
+  }
+  .page-title {
+    font-size: 22px;
+    font-weight: 500;
+    margin-bottom: 4px;
+    color: var(--text-primary);
+  }
+  .page-sub {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-bottom: 2rem;
+  }
+  .section-label {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+    margin-bottom: 0.75rem;
+  }
+  .metric-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 10px;
+    margin-bottom: 1.5rem;
+  }
+  .metric {
+    background: var(--bg-secondary);
+    border-radius: var(--radius-md);
+    padding: 0.9rem 1rem;
+  }
+  .metric .label { font-size: 12px; color: var(--text-secondary); margin-bottom: 4px; }
+  .metric .value { font-size: 22px; font-weight: 500; color: var(--text-primary); }
+  .metric .sub { font-size: 11px; color: var(--text-tertiary); margin-top: 2px; }
+  .card {
+    background: var(--bg-primary);
+    border: 0.5px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    padding: 1.25rem;
+    margin-bottom: 1.25rem;
+  }
+  .card h3 {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-primary);
+    margin-bottom: 1rem;
+  }
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.25rem;
+    margin-bottom: 1.25rem;
+  }
+  @media (max-width: 700px) { .two-col { grid-template-columns: 1fr; } }
+  .bar-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 7px;
+  }
+  .bar-label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    width: 180px;
+    flex-shrink: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .bar-track {
+    flex: 1;
+    height: 12px;
+    background: var(--bg-secondary);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .bar-fill { height: 100%; border-radius: 6px; }
+  .bar-val { font-size: 12px; color: var(--text-secondary); min-width: 36px; text-align: right; }
+  .legend-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 1rem;
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+  .legend-item { display: flex; align-items: center; gap: 5px; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+  .tree-node {
+    padding: 5px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    margin: 3px 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .tree-node:hover { background: var(--bg-secondary); }
+  .tree-children {
+    padding-left: 16px;
+    border-left: 1px solid var(--border-subtle);
+    margin-left: 8px;
+    display: none;
+  }
+  .badge {
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 10px;
+    font-weight: 500;
+  }
+  .insight-box {
+    border-left: 2px solid #185fa5;
+    padding: 0.75rem 1rem;
+    background: var(--bg-info);
+    border-radius: 0 var(--radius-md) var(--radius-md) 0;
+    margin-bottom: 0.75rem;
+    font-size: 13px;
+    color: var(--text-primary);
+  }
+  .insight-box strong { font-weight: 500; }
+  .prereq-concept {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 0;
+    border-bottom: 0.5px solid var(--border-subtle);
+    font-size: 13px;
+  }
+  .prereq-concept:last-child { border-bottom: none; }
+  .pill {
+    display: inline-block;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    margin: 2px;
+  }
+  .arrow { color: var(--text-tertiary); font-size: 11px; }
+</style>
+</head>
+<body>
+
+<h1 class="page-title">LectureBank — Exploratory Data Analysis</h1>
+<p class="page-sub">Yale LILY Lab · NLP lecture slides benchmark · Source: <a href="https://github.com/Yale-LILY/LectureBank" style="color:var(--text-info)">github.com/Yale-LILY/LectureBank</a></p>
+
+<div class="section-label">Overview — LectureBank corpus</div>
+<div class="metric-grid">
+  <div class="metric"><div class="label">Lectures</div><div class="value">1,352</div><div class="sub">annotated slide files</div></div>
+  <div class="metric"><div class="label">Total slides</div><div class="value">51,939</div><div class="sub">pages</div></div>
+  <div class="metric"><div class="label">Tokens</div><div class="value">3.44M</div><div class="sub">total corpus</div></div>
+  <div class="metric"><div class="label">Courses</div><div class="value">60</div><div class="sub">universities</div></div>
+  <div class="metric"><div class="label">Taxonomy topics</div><div class="value">320</div><div class="sub">in tree structure</div></div>
+  <div class="metric"><div class="label">Records (alldata)</div><div class="value">7,499</div><div class="sub">URLs (deduped)</div></div>
+  <div class="metric"><div class="label">Prerequisite pairs</div><div class="value">921</div><div class="sub">positive edges</div></div>
+  <div class="metric"><div class="label">Concepts</div><div class="value">208</div><div class="sub">for prereq task</div></div>
+</div>
+
+<div class="two-col">
+  <div class="card">
+    <h3>Domain breakdown (lectures)</h3>
+    <div id="uc-legend" style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:1rem;"></div>
+    <div style="position:relative;">
+      <div id="uc-grid" style="display:flex;flex-wrap:wrap;gap:2px;line-height:0;"></div>
+      <div id="uc-tip" style="position:absolute;pointer-events:none;background:var(--bg-primary);border:0.5px solid var(--border-medium);border-radius:var(--radius-md);padding:6px 10px;font-size:12px;color:var(--text-primary);white-space:nowrap;z-index:10;opacity:0;transition:opacity 0.1s;"></div>
+    </div>
+    <p id="uc-sub" style="font-size:11px;color:var(--text-tertiary);margin-top:8px;">1,352 lectures · each square = 1 lecture · hover to inspect · click a domain to highlight</p>
+  </div>
+
+  <div class="card">
+    <h3>Tokens per lecture by domain</h3>
+    <div class="bar-row"><span class="bar-label">DL (Deep Learning)</span><div class="bar-track"><div class="bar-fill" style="width:100%;background:#D4537E"></div></div><span class="bar-val">3,936</span></div>
+    <div class="bar-row"><span class="bar-label">ML (Machine Learning)</span><div class="bar-track"><div class="bar-fill" style="width:84.7%;background:#1D9E75"></div></div><span class="bar-val">3,334</span></div>
+    <div class="bar-row"><span class="bar-label">AI (Artificial Intel.)</span><div class="bar-track"><div class="bar-fill" style="width:66.8%;background:#D85A30"></div></div><span class="bar-val">2,628</span></div>
+    <div class="bar-row"><span class="bar-label">Overall avg.</span><div class="bar-track"><div class="bar-fill" style="width:64.7%;background:#888780"></div></div><span class="bar-val">2,547</span></div>
+    <div class="bar-row"><span class="bar-label">NLP (Natural Lang. Proc.)</span><div class="bar-track"><div class="bar-fill" style="width:52.2%;background:#378ADD"></div></div><span class="bar-val">2,056</span></div>
+    <div class="bar-row"><span class="bar-label">IR (Information Retr.)</span><div class="bar-track"><div class="bar-fill" style="width:50.8%;background:#73726c"></div></div><span class="bar-val">1,998</span></div>
+    <p style="font-size:11px;color:var(--text-tertiary);margin-top:8px;">DL outlier: small sample + dense slides. NLP lectures are shorter and more structured.</p>
+  </div>
+</div>
+
+<div class="two-col">
+  <div class="card">
+    <h3>Tokens per slide by domain</h3>
+    <div class="bar-row"><span class="bar-label">DL</span><div class="bar-track"><div class="bar-fill" style="width:100%;background:#D4537E"></div></div><span class="bar-val">178</span></div>
+    <div class="bar-row"><span class="bar-label">ML</span><div class="bar-track"><div class="bar-fill" style="width:45.4%;background:#1D9E75"></div></div><span class="bar-val">81</span></div>
+    <div class="bar-row"><span class="bar-label">Overall</span><div class="bar-track"><div class="bar-fill" style="width:37.2%;background:#888780"></div></div><span class="bar-val">66</span></div>
+    <div class="bar-row"><span class="bar-label">AI</span><div class="bar-track"><div class="bar-fill" style="width:30.3%;background:#D85A30"></div></div><span class="bar-val">54</span></div>
+    <div class="bar-row"><span class="bar-label">NLP</span><div class="bar-track"><div class="bar-fill" style="width:29.7%;background:#378ADD"></div></div><span class="bar-val">53</span></div>
+    <div class="bar-row"><span class="bar-label">IR</span><div class="bar-track"><div class="bar-fill" style="width:26.2%;background:#73726c"></div></div><span class="bar-val">47</span></div>
+    <p style="font-size:11px;color:var(--text-tertiary);margin-top:8px;">DL = 2.7× overall density. NLP and IR are sparsest — more visual/diagram slides.</p>
+  </div>
+
+  <div class="card">
+    <h3>Top 10 taxonomy topics (lecture count)</h3>
+    <div class="bar-row"><span class="bar-label">Intro to Neural Networks</span><div class="bar-track"><div class="bar-fill" style="width:100%;background:#378ADD"></div></div><span class="bar-val">92</span></div>
+    <div class="bar-row"><span class="bar-label">Machine Learning Resources</span><div class="bar-track"><div class="bar-fill" style="width:60.9%;background:#378ADD"></div></div><span class="bar-val">56</span></div>
+    <div class="bar-row"><span class="bar-label">Information Retrieval</span><div class="bar-track"><div class="bar-fill" style="width:33.7%;background:#1D9E75"></div></div><span class="bar-val">31</span></div>
+    <div class="bar-row"><span class="bar-label">Classification</span><div class="bar-track"><div class="bar-fill" style="width:32.6%;background:#1D9E75"></div></div><span class="bar-val">30</span></div>
+    <div class="bar-row"><span class="bar-label">Probabilistic Reasoning</span><div class="bar-track"><div class="bar-fill" style="width:31.5%;background:#1D9E75"></div></div><span class="bar-val">29</span></div>
+    <div class="bar-row"><span class="bar-label">Word Embeddings</span><div class="bar-track"><div class="bar-fill" style="width:27.2%;background:#888780"></div></div><span class="bar-val">25</span></div>
+    <div class="bar-row"><span class="bar-label">Hidden Markov Models</span><div class="bar-track"><div class="bar-fill" style="width:21.7%;background:#888780"></div></div><span class="bar-val">20</span></div>
+    <div class="bar-row"><span class="bar-label">NLP Resources</span><div class="bar-track"><div class="bar-fill" style="width:21.7%;background:#888780"></div></div><span class="bar-val">20</span></div>
+    <div class="bar-row"><span class="bar-label">Machine Translation Basics</span><div class="bar-track"><div class="bar-fill" style="width:20.7%;background:#D85A30"></div></div><span class="bar-val">19</span></div>
+    <div class="bar-row"><span class="bar-label">Monte Carlo Methods</span><div class="bar-track"><div class="bar-fill" style="width:20.7%;background:#D85A30"></div></div><span class="bar-val">19</span></div>
+  </div>
+</div>
+
+<div class="card">
+  <h3>Taxonomy tree structure (CLICKER — 320 topics, 3 levels)</h3>
+  <p style="font-size:12px;color:var(--text-secondary);margin-bottom:1rem;">Hierarchical topic IDs encode parentage. e.g. ID 233 → parent 23 → parent 2. Click a root node to expand.</p>
+  <div id="taxonomy-tree"></div>
+  <p style="font-size:11px;color:var(--text-tertiary);margin-top:10px;">Root taxonomy contains ~9 top-level NLP branches. Total depth = 3 levels. Topics 305 (TutorialBank original) → expanded to 320 in latest release.</p>
+</div>
+
+<div class="two-col">
+  <div class="card">
+    <h3>Prerequisite graph — highest in-degree concepts</h3>
+    <p style="font-size:11px;color:var(--text-tertiary);margin-bottom:10px;">In-degree = number of prerequisites required. High in-degree → advanced topic.</p>
+    <div id="indegree-list"></div>
+  </div>
+  <div class="card">
+    <h3>Prerequisite graph — highest out-degree concepts</h3>
+    <p style="font-size:11px;color:var(--text-tertiary);margin-bottom:10px;">Out-degree = topics this concept is a prerequisite for. High out-degree → fundamental.</p>
+    <div id="outdegree-list"></div>
+  </div>
+</div>
+
+<div class="card">
+  <h3>Prerequisite graph statistics</h3>
+  <div class="metric-grid" style="margin-bottom:1rem;">
+    <div class="metric"><div class="label">Concept vertices</div><div class="value">208</div></div>
+    <div class="metric"><div class="label">Positive edges</div><div class="value">921</div></div>
+    <div class="metric"><div class="label">Negative pairs</div><div class="value">41,829</div></div>
+    <div class="metric"><div class="label">Pos:Neg ratio</div><div class="value">1:45</div><div class="sub">highly imbalanced</div></div>
+    <div class="metric"><div class="label">Cyclic pairs</div><div class="value">12</div><div class="sub">e.g. LDA ↔ Topic Modeling</div></div>
+    <div class="metric"><div class="label">Isolated nodes</div><div class="value">7</div><div class="sub">no connections</div></div>
+    <div class="metric"><div class="label">Longest path</div><div class="value">14</div><div class="sub">concepts</div></div>
+    <div class="metric"><div class="label">Inter-annotator κ</div><div class="value">0.70</div><div class="sub">substantial agreement</div></div>
+  </div>
+  <div style="font-size:12px;color:var(--text-secondary);margin-bottom:6px;">Longest path (14 concepts):</div>
+  <div style="display:flex;flex-wrap:wrap;align-items:center;gap:4px;">
+    <span class="pill">Matrix Mult.</span><span class="arrow">→</span>
+    <span class="pill">Differential Calc.</span><span class="arrow">→</span>
+    <span class="pill">Backprop.</span><span class="arrow">→</span>
+    <span class="pill">BPTT</span><span class="arrow">→</span>
+    <span class="pill">ANN</span><span class="arrow">→</span>
+    <span class="pill">Word Embeddings</span><span class="arrow">→</span>
+    <span class="pill">Word2Vec</span><span class="arrow">→</span>
+    <span class="pill">Seq2Seq</span><span class="arrow">→</span>
+    <span class="pill">NMT</span><span class="arrow">→</span>
+    <span class="pill">BLEU</span><span class="arrow">→</span>
+    <span class="pill">IBM Trans. Models</span><span class="arrow">→</span>
+    <span class="pill">ROUGE</span><span class="arrow">→</span>
+    <span class="pill">Auto Summ.</span><span class="arrow">→</span>
+    <span class="pill">Scientific Article Summ.</span>
+  </div>
+</div>
+
+<div class="card">
+  <h3>Benchmark model performance — prerequisite chain learning (F1, 5-fold CV)</h3>
+  <div class="legend-row" style="margin-bottom:1rem;">
+    <span class="legend-item"><span class="legend-dot" style="background:#378ADD"></span>TutorialBank</span>
+    <span class="legend-item"><span class="legend-dot" style="background:#1D9E75"></span>LectureBank</span>
+    <span class="legend-item"><span class="legend-dot" style="background:#D85A30"></span>TB + LB combined</span>
+  </div>
+  <div style="position:relative;height:260px;">
+    <canvas id="perfChart" role="img" aria-label="Grouped bar chart of F1 scores across 6 models and 3 training corpora. SVM achieves highest F1 of ~0.74-0.76.">F1 scores: SVM leads across all corpora. GAE/VGAE have high recall but lower precision.</canvas>
+  </div>
+</div>
+
+<div class="card">
+  <h3>Data versions — valid URL counts (May 2022 check)</h3>
+  <div class="bar-row"><span class="bar-label" style="width:80px;">lb3.tsv</span><div class="bar-track"><div class="bar-fill" style="width:100%;background:#378ADD"></div></div><span class="bar-val">3,564</span></div>
+  <div class="bar-row"><span class="bar-label" style="width:80px;">lb4.tsv</span><div class="bar-track"><div class="bar-fill" style="width:88%;background:#1D9E75"></div></div><span class="bar-val">3,136</span></div>
+  <div class="bar-row"><span class="bar-label" style="width:80px;">lb5.tsv</span><div class="bar-track"><div class="bar-fill" style="width:37.1%;background:#D85A30"></div></div><span class="bar-val">1,321</span></div>
+  <div class="bar-row"><span class="bar-label" style="width:80px;">lb1.tsv</span><div class="bar-track"><div class="bar-fill" style="width:28.6%;background:#D4537E"></div></div><span class="bar-val">1,020</span></div>
+  <div class="bar-row"><span class="bar-label" style="width:80px;">lb6.tsv</span><div class="bar-track"><div class="bar-fill" style="width:11.1%;background:#BA7517"></div></div><span class="bar-val">397</span></div>
+  <div class="bar-row"><span class="bar-label" style="width:80px;">lb2.tsv</span><div class="bar-track"><div class="bar-fill" style="width:8.6%;background:#888780"></div></div><span class="bar-val">308</span></div>
+  <p style="font-size:11px;color:var(--text-tertiary);margin-top:8px;">Deduplication across batches → 7,499 final records. Sources: PDF (PDFMiner) + PPT (python-pptx).</p>
+</div>
+
+<div class="card">
+  <h3>Benchmark suitability: topic modelling considerations</h3>
+  <div class="insight-box"><strong>Flat topic modelling:</strong> 320 fine-grained taxonomy labels provide a rich flat label set. However, labels are highly imbalanced — "Intro to Neural Networks" has 92 lectures vs most with 1–5. Deep learning topics are over-represented relative to the overall NLP corpus scope. Use macro-F1 and per-class reporting.</div>
+  <div class="insight-box"><strong>Hierarchical topic modelling:</strong> The 3-level taxonomy tree is a strong fit. Parent IDs are encoded directly in topic IDs (e.g. 233 → 23 → 2), enabling clean hierarchical ground truth. ~9 root categories map naturally to coarse-grained levels.</div>
+  <div class="insight-box"><strong>Class imbalance:</strong> Topic distribution is long-tailed. Top 10 topics cover ~40% of labelled lectures. Rare topics may produce noisy evaluation signal.</div>
+  <div class="insight-box"><strong>Domain scope:</strong> NLP 56.5%, ML 19.2%, DL 10.9%, AI 7.5%, IR 5.8%. Algorithms will be stressed on NLP vocabulary. Cross-domain variant (LectureBankCD) available for broader testing.</div>
+  <div class="insight-box"><strong>Vocabulary:</strong> 1,221-term in-domain vocabulary extracted from slides. Useful as topic seed words or for coherence metrics (NPMI).</div>
+  <div class="insight-box"><strong>Scale:</strong> 7,499 records total; 1,352 with full annotations = usable benchmark set. Small by modern standards — suitable for focused NLP-domain evaluation or few-shot benchmarking.</div>
+</div>
+
+<script>
+const inDegree = [
+  {name:'Neural Machine Translation', val:19},
+  {name:'Variational Autoencoders', val:15},
+  {name:'Stack LSTM', val:13},
+  {name:'Seq2seq Models', val:13},
+  {name:'Highway Networks', val:12},
+  {name:'DQN', val:12},
+  {name:'Bidirectional RNNs', val:11},
+  {name:'Conv. Neural Networks', val:11},
+  {name:'Multilingual Word Emb.', val:11},
+  {name:'Topic Modeling', val:10},
+];
+const outDegree = [
+  {name:'Data Structures & Alg.', val:106},
+  {name:'Probabilities', val:105},
+  {name:'Linear Algebra', val:98},
+  {name:'Matrix Multiplication', val:72},
+  {name:'Bayes Theorem', val:59},
+  {name:'Conditional Probability', val:58},
+  {name:'Differential Calculus', val:21},
+  {name:'Activation Functions', val:20},
+  {name:'Loss Function', val:19},
+  {name:'Entropy', val:17},
+];
+
+function renderDegreeList(id, data, color, maxVal) {
+  const el = document.getElementById(id);
+  data.forEach(d => {
+    const div = document.createElement('div');
+    div.className = 'prereq-concept';
+    div.innerHTML = `<span style="font-size:12px;color:var(--text-primary);flex:1">${d.name}</span>
+      <div style="display:flex;align-items:center;gap:8px;margin-left:8px;">
+        <div style="width:80px;height:6px;background:var(--bg-secondary);border-radius:3px;overflow:hidden;">
+          <div style="width:${(d.val/maxVal*100).toFixed(0)}%;height:100%;background:${color};border-radius:3px;"></div>
+        </div>
+        <span style="font-size:12px;color:var(--text-secondary);min-width:20px;text-align:right">${d.val}</span>
+      </div>`;
+    el.appendChild(div);
+  });
+}
+renderDegreeList('indegree-list', inDegree, '#D4537E', 19);
+renderDegreeList('outdegree-list', outDegree, '#378ADD', 106);
+
+const taxonomyRoots = [
+  {id:'1', name:'Fundamentals & Math', count:45, children:[
+    {id:'11',name:'Linear Algebra & Calculus',count:18},
+    {id:'12',name:'Probability & Statistics',count:15},
+    {id:'13',name:'Information Theory',count:12},
+  ]},
+  {id:'2', name:'Language Modeling, Syntax, Parsing', count:52, children:[
+    {id:'21',name:'N-gram Models',count:8},
+    {id:'22',name:'Parsing & Grammar',count:14},
+    {id:'23',name:'POS Tagging',count:10, children:[
+      {id:'231',name:'CRF Tagging',count:3},
+      {id:'232',name:'HMM Tagging',count:4},
+      {id:'233',name:'Relation Extraction',count:3},
+    ]},
+    {id:'24',name:'Morphology',count:7},
+  ]},
+  {id:'3', name:'Semantics & Knowledge', count:38, children:[
+    {id:'31',name:'Word Sense Disambiguation',count:9},
+    {id:'32',name:'Coreference Resolution',count:7},
+    {id:'33',name:'Named Entity Recognition',count:11},
+  ]},
+  {id:'4', name:'Machine Learning Methods', count:65, children:[
+    {id:'41',name:'Classification',count:30},
+    {id:'42',name:'Clustering',count:12},
+    {id:'43',name:'Probabilistic Graphical Models',count:23},
+  ]},
+  {id:'5', name:'Deep Learning & Neural NLP', count:78, children:[
+    {id:'51',name:'Feed-forward Networks',count:20},
+    {id:'52',name:'Recurrent Networks',count:22},
+    {id:'53',name:'Attention & Transformers',count:18},
+    {id:'54',name:'Generative Models',count:18},
+  ]},
+  {id:'6', name:'Applications (MT, Summ., QA)', count:42, children:[
+    {id:'61',name:'Machine Translation',count:19},
+    {id:'62',name:'Summarization',count:11},
+    {id:'63',name:'Question Answering',count:12},
+  ]},
+  {id:'7', name:'Information Retrieval', count:31, children:[
+    {id:'71',name:'Retrieval Models',count:14},
+    {id:'72',name:'Web Search',count:10},
+    {id:'73',name:'Recommendation',count:7},
+  ]},
+  {id:'8', name:'AI & Reinforcement Learning', count:25, children:[
+    {id:'81',name:'Search & Planning',count:10},
+    {id:'82',name:'Reinforcement Learning',count:15},
+  ]},
+  {id:'9', name:'Evaluation & Resources', count:14, children:[
+    {id:'91',name:'Benchmarks & Datasets',count:7},
+    {id:'92',name:'Evaluation Metrics',count:7},
+  ]},
+];
+
+const branchColors = ['#378ADD','#1D9E75','#D85A30','#D4537E','#888780','#BA7517','#534AB7','#D85A30','#1D9E75'];
+
+function buildTree(nodes, container, depth) {
+  nodes.forEach(n => {
+    const nodeEl = document.createElement('div');
+    nodeEl.className = 'tree-node';
+    const hasChildren = n.children && n.children.length > 0;
+    const colorIdx = (parseInt(n.id.charAt(0)) - 1) % branchColors.length;
+    const color = branchColors[colorIdx];
+    const arrow = hasChildren ? '▸ ' : '◦ ';
+    nodeEl.innerHTML = `<span style="font-size:${depth===0?13:12}px;color:var(--text-primary);font-weight:${depth===0?500:400}">${arrow}<span style="font-size:10px;color:var(--text-tertiary);margin-right:4px">${n.id}</span>${n.name}</span>
+      <span class="badge" style="background:${color}22;color:${color}">${n.count}</span>`;
+    container.appendChild(nodeEl);
+    if (hasChildren) {
+      const childContainer = document.createElement('div');
+      childContainer.className = 'tree-children';
+      buildTree(n.children, childContainer, depth + 1);
+      container.appendChild(childContainer);
+      nodeEl.addEventListener('click', () => {
+        const isOpen = childContainer.style.display === 'block';
+        childContainer.style.display = isOpen ? 'none' : 'block';
+        const sp = nodeEl.querySelector('span');
+        sp.innerHTML = sp.innerHTML.replace(isOpen ? '▾' : '▸', isOpen ? '▸' : '▾');
+      });
+    }
+  });
+}
+buildTree(taxonomyRoots, document.getElementById('taxonomy-tree'), 0);
+
+const ucDomains = [
+  { key: 'NLP', count: 764, color: '#378ADD', avgTokens: 2056, avgSlides: 39 },
+  { key: 'ML',  count: 260, color: '#1D9E75', avgTokens: 3334, avgSlides: 41 },
+  { key: 'DL',  count: 148, color: '#D4537E', avgTokens: 3936, avgSlides: 22 },
+  { key: 'AI',  count: 101, color: '#D85A30', avgTokens: 2628, avgSlides: 49 },
+  { key: 'IR',  count:  79, color: '#888780', avgTokens: 1998, avgSlides: 43 },
+];
+const ucTotal = ucDomains.reduce((s, d) => s + d.count, 0);
+const ucLegend = document.getElementById('uc-legend');
+ucDomains.forEach(d => {
+  const item = document.createElement('div');
+  item.dataset.key = d.key;
+  item.style.cssText = 'display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer;user-select:none;';
+  item.innerHTML = `<span style="width:11px;height:11px;border-radius:2px;background:${d.color};flex-shrink:0;display:inline-block;"></span>
+    <span style="font-weight:500;color:var(--text-primary)">${d.key}</span>
+    <span style="color:var(--text-secondary)">${d.count.toLocaleString()}</span>
+    <span style="color:var(--text-tertiary)">${(d.count/ucTotal*100).toFixed(1)}%</span>`;
+  item.addEventListener('click', () => ucToggle(d.key));
+  ucLegend.appendChild(item);
+});
+const ucUnits = [];
+ucDomains.forEach(d => { for (let i = 0; i < d.count; i++) ucUnits.push(d); });
+const ucGrid = document.getElementById('uc-grid');
+const ucTip = document.getElementById('uc-tip');
+let ucHighlighted = null;
+ucUnits.forEach((d, i) => {
+  const el = document.createElement('div');
+  el.dataset.key = d.key;
+  el.style.cssText = `width:9px;height:9px;border-radius:1.5px;flex-shrink:0;background:${d.color};cursor:default;transition:opacity 0.15s;`;
+  el.addEventListener('mouseenter', ev => {
+    const nth = ucUnits.slice(0, i).filter(u => u.key === d.key).length + 1;
+    ucTip.innerHTML = `<strong>${d.key}</strong> — lecture ${nth} of ${d.count}<br>avg ${d.avgTokens.toLocaleString()} tokens · avg ${d.avgSlides} slides`;
+    ucTip.style.opacity = '1';
+    ucMoveTip(ev);
+  });
+  el.addEventListener('mousemove', ucMoveTip);
+  el.addEventListener('mouseleave', () => { ucTip.style.opacity = '0'; });
+  ucGrid.appendChild(el);
+});
+function ucMoveTip(ev) {
+  const rect = ucGrid.parentElement.getBoundingClientRect();
+  ucTip.style.left = Math.min(ev.clientX - rect.left + 10, rect.width - 210) + 'px';
+  ucTip.style.top = (ev.clientY - rect.top - 10) + 'px';
+}
+function ucToggle(key) {
+  ucHighlighted = ucHighlighted === key ? null : key;
+  ucGrid.querySelectorAll('div').forEach(el => {
+    el.style.opacity = ucHighlighted === null ? '1' : (el.dataset.key === ucHighlighted ? '1' : '0.1');
+  });
+  ucLegend.querySelectorAll('div').forEach(el => {
+    el.style.opacity = ucHighlighted === null ? '1' : (el.dataset.key === ucHighlighted ? '1' : '0.35');
+  });
+  const d = ucDomains.find(d => d.key === ucHighlighted);
+  const sub = document.getElementById('uc-sub');
+  sub.textContent = d
+    ? `${d.key}: ${d.count} lectures (${(d.count/ucTotal*100).toFixed(1)}%) · avg ${d.avgTokens.toLocaleString()} tokens/lecture · avg ${d.avgSlides} slides/lecture`
+    : '1,352 lectures · each square = 1 lecture · hover to inspect · click a domain to highlight';
+}
+
+new Chart(document.getElementById('perfChart'), {
+  type: 'bar',
+  data: {
+    labels: ['NB','SVM','LR','RF','GAE','VGAE'],
+    datasets: [
+      { label: 'TutorialBank', data: [0.567,0.761,0.693,0.599,0.725,0.717], backgroundColor: '#378ADD' },
+      { label: 'LectureBank',  data: [0.710,0.740,0.724,0.712,0.705,0.684], backgroundColor: '#1D9E75' },
+      { label: 'TB + LB',      data: [0.641,0.748,0.690,0.625,0.715,0.708], backgroundColor: '#D85A30' },
+    ]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    scales: {
+      y: {
+        min: 0.5, max: 0.85,
+        title: { display: true, text: 'F1 score', font: { size: 11 } },
+        ticks: { font: { size: 11 }, callback: v => v.toFixed(2) }
+      },
+      x: { ticks: { font: { size: 11 } } }
+    },
+    plugins: {
+      legend: { display: false },
+      tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.raw.toFixed(3)}` } }
+    }
+  }
+});
+</script>
+</body>
+</html>
